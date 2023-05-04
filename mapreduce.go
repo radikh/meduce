@@ -69,21 +69,6 @@ func (iterator Iterator[Value]) Slice() []Value {
 	return result
 }
 
-// Channel returns all values from the iterator as a channel.
-func (iterator Iterator[Value]) Channel() chan Value {
-	channel := make(chan Value)
-
-	go func() {
-		for value, ok := iterator(); ok; value, ok = iterator() {
-			channel <- value
-		}
-
-		close(channel)
-	}()
-
-	return channel
-}
-
 // SliceIterator returns an iterator that generates values from a slice.
 // It returns zero value of Value type and false if there are no more values.
 func SliceIterator[Value any](slice ...Value) Iterator[Value] {
