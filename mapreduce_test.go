@@ -32,6 +32,30 @@ func TestReduce(t *testing.T) {
 	}
 }
 
+func TestReduceParallel(t *testing.T) {
+	type testcase struct {
+		input    []int
+		expected int
+	}
+
+	testcases := []testcase{
+		{[]int{1, 2, 3, 4, 5}, 15},
+		{[]int{1, 2, 3, 4, 5, 6}, 21},
+		{[]int{1, 2, 3, 4, 5, 6, 7}, 28},
+		{[]int{1, 2, 3, 4, 5, 6, 7, 8}, 36},
+		{[]int{}, 0},
+	}
+
+	reducer := sumReducer
+
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("Reduce(%v)", tc.input), func(t *testing.T) {
+			result := ParallelReduce(reducer, SliceIterator(tc.input...))
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
 func sumReducer(a, b int) int {
 	return a + b
 }
@@ -200,7 +224,9 @@ func ExampleReduceMapFilterDeferred() {
 	// the same as ExampleReduceMapFilter but with deferred iterators
 	// It can help to save memory if you have a lot of data
 	// and you don't want to store all intermediate results in memory.
-	input := SliceIterator([]int{1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144}...)
+	input1 := SliceIterator([]int{1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144}...)
+	input2 := SliceIterator([]int{1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144}...)
+	input := JointIterator(input1, input2)
 
 	evenFilter := func(value int) bool {
 		return value%2 == 0
@@ -219,13 +245,13 @@ func ExampleReduceMapFilterDeferred() {
 	}
 
 	result := Reduce(
-		concatenationReducer, // will produce "34144"
+		concatenationReducer, // will produce "3414434144"
 		NewFilterIterator(
-			longFilter, // will produce ["34" "144"]
+			longFilter,
 			NewMapperIterator(
-				itoaMap, // will produce ["2" "8" "34" "144"]
+				itoaMap,
 				NewFilterIterator(
-					evenFilter, // will produce [2 8 34 144]
+					evenFilter,
 					input,
 				),
 			),
@@ -235,5 +261,5 @@ func ExampleReduceMapFilterDeferred() {
 	fmt.Println(result)
 
 	//Output:
-	//34144
+	//3414434144
 }

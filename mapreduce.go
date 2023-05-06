@@ -3,6 +3,11 @@
 // Simple as wooden stick.
 package meduce
 
+import (
+	"runtime"
+	"sync"
+)
+
 // Reduce is a type of function that takes two values
 // and returns a result of their composition.
 type Reducer[Value any] func(Value, Value) Value
@@ -14,6 +19,41 @@ func Reduce[Value any](reducer Reducer[Value], input Iterator[Value]) Value {
 	result, _ := input()
 	for value, ok := input(); ok; value, ok = input() {
 		result = reducer(result, value)
+	}
+
+	return result
+}
+
+// ParallelReduce applies reducer to all values in the iterator concurrently.
+// The iterator should be concurrent safe and the reducer should be order-agnostic.
+// Number of goroutines is equal to number of CPU cores * 8.
+func ParallelReduce[Value any](reducer Reducer[Value], input Iterator[Value]) Value {
+	concurrency := runtime.NumCPU() * 8
+
+	results := make([]Value, concurrency)
+
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		i := i
+
+		go func() {
+			defer wg.Done()
+			result, _ := input()
+			for value, ok := input(); ok; value, ok = input() {
+				result = reducer(result, value)
+			}
+
+			results[i] = result
+		}()
+	}
+
+	wg.Wait()
+
+	result := results[0]
+	for i := 1; i < concurrency; i++ {
+		result = reducer(result, results[i])
 	}
 
 	return result
@@ -102,17 +142,18 @@ func (iterator Iterator[Value]) Slice() []Value {
 // SliceIterator returns an iterator that generates values from a slice.
 // It returns zero value of Value type and false if there are no more values.
 func SliceIterator[Value any](slice ...Value) Iterator[Value] {
-	index := 0
+	values := make(chan Value, len(slice))
+
+	for _, value := range slice {
+		values <- value
+	}
+
+	close(values)
 
 	return func() (Value, bool) {
-		if index >= len(slice) {
-			return *new(Value), false
-		}
+		value, ok := <-values
 
-		value := slice[index]
-		index++
-
-		return value, true
+		return value, ok
 	}
 }
 
@@ -121,7 +162,11 @@ func SliceIterator[Value any](slice ...Value) Iterator[Value] {
 func JointIterator[Value any](iterators ...Iterator[Value]) Iterator[Value] {
 	index := 0
 
+	mu := sync.Mutex{}
+
 	return func() (Value, bool) {
+		mu.Lock()
+		defer mu.Unlock()
 		for index < len(iterators) {
 			value, ok := iterators[index]()
 
