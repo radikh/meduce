@@ -62,6 +62,26 @@ func TestFilter(t *testing.T) {
 	assert.Equal(t, expected, result.Slice())
 }
 
+func TestFilterIterator(t *testing.T) {
+	input := SliceIterator([]int{1, 2, 3, 4, 5}...)
+	expected := []int{2, 4}
+
+	filterer := even
+
+	result := NewFilterIterator(filterer, input)
+
+	assert.Equal(t, expected, result.Slice())
+}
+
+func TestMapFilter(t *testing.T) {
+	input := SliceIterator([]int{1, 2, 3, 4, 5}...)
+	expected := []int{4, 8}
+
+	result := NewMapperIterator(MultiplyByTwo, Filter(even, input))
+
+	assert.Equal(t, expected, result.Slice())
+}
+
 func TestReduceMapFilter(t *testing.T) {
 	input := SliceIterator([]int{1, 2, 3, 4, 5}...)
 	expected := 12
@@ -163,6 +183,48 @@ func ExampleReduceMapFilter() {
 			Map(
 				itoaMap, // will produce ["2" "8" "34" "144"]
 				Filter(
+					evenFilter, // will produce [2 8 34 144]
+					input,
+				),
+			),
+		),
+	)
+
+	fmt.Println(result)
+
+	//Output:
+	//34144
+}
+
+func ExampleReduceMapFilterDeferred() {
+	// the same as ExampleReduceMapFilter but with deferred iterators
+	// It can help to save memory if you have a lot of data
+	// and you don't want to store all intermediate results in memory.
+	input := SliceIterator([]int{1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144}...)
+
+	evenFilter := func(value int) bool {
+		return value%2 == 0
+	}
+
+	itoaMap := func(value int) string {
+		return fmt.Sprintf("%d", value)
+	}
+
+	longFilter := func(value string) bool {
+		return len(value) > 1
+	}
+
+	concatenationReducer := func(a, b string) string {
+		return fmt.Sprintf("%s%s", a, b)
+	}
+
+	result := Reduce(
+		concatenationReducer, // will produce "34144"
+		NewFilterIterator(
+			longFilter, // will produce ["34" "144"]
+			NewMapperIterator(
+				itoaMap, // will produce ["2" "8" "34" "144"]
+				NewFilterIterator(
 					evenFilter, // will produce [2 8 34 144]
 					input,
 				),

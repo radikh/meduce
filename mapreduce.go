@@ -35,6 +35,21 @@ func Map[Value, Result any](mapper Mapper[Value, Result], input Iterator[Value])
 	return SliceIterator(result...)
 }
 
+// NewMapIterator returns an iterator that
+// applies mapper on call to the iterator.
+// It can be used to chain map operations.
+// Usefull for lazy evaluation to save some memory.
+func NewMapperIterator[Value, Result any](mapper Mapper[Value, Result], input Iterator[Value]) Iterator[Result] {
+	return func() (Result, bool) {
+		value, ok := input()
+		if !ok {
+			return *new(Result), false
+		}
+
+		return mapper(value), true
+	}
+}
+
 // Filterer is a type of function that returns
 // true if value matches some condition.
 type Filterer[Value any] func(Value) bool
@@ -51,6 +66,21 @@ func Filter[Value any](filterer Filterer[Value], input Iterator[Value]) Iterator
 	}
 
 	return SliceIterator(result...)
+}
+
+// NewFilterIterator returns an iterator that
+// applies filter on call to the iterator.
+// It can be used to chain filter operations.
+// Usefull for lazy evaluation to save some memory.
+func NewFilterIterator[Value any](filterer Filterer[Value], input Iterator[Value]) Iterator[Value] {
+	return func() (Value, bool) {
+		for value, ok := input(); ok; value, ok = input() {
+			if filterer(value) {
+				return value, true
+			}
+		}
+		return *new(Value), false
+	}
 }
 
 // Iterator is a type of function that generates values.
