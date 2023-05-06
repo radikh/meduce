@@ -55,7 +55,7 @@ func TestFilter(t *testing.T) {
 	input := SliceIterator([]int{1, 2, 3, 4, 5}...)
 	expected := []int{2, 4}
 
-	filterer := Even
+	filterer := even
 
 	result := Filter(filterer, input)
 
@@ -66,12 +66,12 @@ func TestReduceMapFilter(t *testing.T) {
 	input := SliceIterator([]int{1, 2, 3, 4, 5}...)
 	expected := 12
 
-	result := Reduce(sumReducer, Map(MultiplyByTwo, Filter(Even, input)))
+	result := Reduce(sumReducer, Map(MultiplyByTwo, Filter(even, input)))
 
 	assert.Equal(t, expected, result)
 }
 
-func Even(value int) bool {
+func even(value int) bool {
 	return value%2 == 0
 }
 
